@@ -144,7 +144,42 @@ class Emotions(BaseModel):
     anger: float
     fear: float
 
-def analyze_save_result(user_id, result):
+# def analyze_save_result(user_id, result):
+#     formatted_result = [
+#         {
+#             "content": msg.content,
+#             "isUser": msg.isUser
+#         } for msg in result
+#     ]
+
+#     messages = [
+#         {"role": "system", "content": "会話内容を分析して、ユーザーの感情スコアを0~1の範囲で分析して下さい。（大きいほど感情が強い）"}
+#     ]
+    
+#     for message in formatted_result:
+#         if message["isUser"]:
+#             messages.append({"role": "user", "content": message["content"]})
+#         else:
+#             messages.append({"role": "assistant", "content": message["content"]})
+    
+#     print(messages)
+#     try:
+#         completion = client.beta.chat.completions.parse(
+#             model="gpt-4o",
+#             messages=messages,
+#             response_format=Emotions,
+#         )
+#         scores = completion.choices[0].message.parsed
+#     except Exception as e:
+#         print(f"Error analyzing emotions: {str(e)}")
+#         # Return default neutral scores if analysis fails
+#         scores = Emotions(joy=0.5, sadness=0.5, anger=0.5, fear=0.5)
+#     # Emotionsオブジェクトを辞書に変換
+#     scores_dict = scores.model_dump()
+
+
+
+def save_raw_result(user_id, result):
     formatted_result = [
         {
             "content": msg.content,
@@ -176,20 +211,15 @@ def analyze_save_result(user_id, result):
         scores = Emotions(joy=0.5, sadness=0.5, anger=0.5, fear=0.5)
     # Emotionsオブジェクトを辞書に変換
     scores_dict = scores.model_dump()
-    
-    supabase.table("sessions").update({
-        "emotions": scores_dict
-    }).eq("user_id", user_id).execute()
 
 
-def save_raw_result(user_id, messages):
     imageSessions = []
 
     formatted_messages = [
         {
             "content": msg.content,
             "isUser": msg.isUser
-        } for msg in messages
+        } for msg in result
     ]
     
     # メッセージを7つずつのグループに分割
@@ -208,7 +238,8 @@ def save_raw_result(user_id, messages):
     response = supabase.table("sessions").insert({
         "user_id": user_id,
         "image_sessions": imageSessions,
-        "time_stamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "time_stamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "emotions": scores_dict
     }).execute()
     
     # レスポンスからIDを正しく取得
@@ -248,7 +279,6 @@ class CompleteRequest(BaseModel):
 @app.post("/complete")
 async def complete(request: CompleteRequest):
     unique_id = save_raw_result(request.user_id, request.messages)
-    analyze_save_result(unique_id, request.messages)
     return {"unique_id": unique_id}
 
 class SessionRequest(BaseModel):
