@@ -1,1 +1,1 @@
-web: uvicorn main:app --host 0.0.0.0 --port $PORT 
+web: python -m spacy download ja_core_news_md && uvicorn main:app --host 0.0.0.0 --port $PORT
