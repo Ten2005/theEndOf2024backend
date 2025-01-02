@@ -201,6 +201,7 @@ def save_raw_result(user_id, messages):
     response = supabase.table("sessions").insert({
         "user_id": user_id,
         "image_sessions": imageSessions,
+        "time_stamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }).execute()
     
     # レスポンスからIDを正しく取得
