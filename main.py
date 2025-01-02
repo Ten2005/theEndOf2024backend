@@ -161,13 +161,19 @@ def analyze_save_result(user_id, result):
             messages.append({"role": "user", "content": message["content"]})
         else:
             messages.append({"role": "assistant", "content": message["content"]})
-
-    completion = client.beta.chat.completions.parse(
-        model="gpt-4o",
-        messages=messages,
-        response_format=Emotions,
-    )
-    scores = completion.choices[0].message.parsed
+    
+    print(messages)
+    try:
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o",
+            messages=messages,
+            response_format=Emotions,
+        )
+        scores = completion.choices[0].message.parsed
+    except Exception as e:
+        print(f"Error analyzing emotions: {str(e)}")
+        # Return default neutral scores if analysis fails
+        scores = Emotions(joy=0.5, sadness=0.5, anger=0.5, fear=0.5)
     # Emotionsオブジェクトを辞書に変換
     scores_dict = scores.model_dump()
     
