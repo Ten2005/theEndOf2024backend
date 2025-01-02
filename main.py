@@ -144,7 +144,7 @@ class Emotions(BaseModel):
     anger: float
     fear: float
 
-def analyze_save_result(unique_id, result):
+def analyze_save_result(user_id, result):
     formatted_result = [
         {
             "content": msg.content,
@@ -173,7 +173,7 @@ def analyze_save_result(unique_id, result):
     
     supabase.table("sessions").update({
         "emotions": scores_dict
-    }).eq("id", unique_id).execute()
+    }).eq("user_id", user_id).execute()
 
 
 def save_raw_result(user_id, messages):
