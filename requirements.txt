@@ -1,7 +1,12 @@
-spacy==3.8.3
-pydantic==2.1.1
 fastapi==0.115.6
-uvicorn==0.34.0
+ja_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/ja_core_news_sm-3.8.0/ja_core_news_sm-3.8.0-py3-none-any.whl#sha256=65693016b7cf33ffa845af3523a9c9b8d9aabae85dfc2e46731513a5e03def04
+numpy==2.2.1
+openai==1.58.1
+packaging==24.2
+pydantic==2.1.1
+pydantic_core==2.4.0
 python-dotenv==1.0.1
+spacy==3.8.3
 supabase==2.11.0
-openai
+thinc==8.3.3
+uvicorn==0.34.0
