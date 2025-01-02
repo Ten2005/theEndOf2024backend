@@ -103,7 +103,7 @@ def get_valid_context(content, messages):
         sentenceList += sentences
 
     # contentとsentenceListの各文との類似度を計算
-    nlp = spacy.load("ja_core_news_lg")
+    nlp = spacy.load("ja_core_news_md")
     content_doc = nlp(content)
     
     # 類似度とインデックスのペアのリストを作成
