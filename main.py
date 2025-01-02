@@ -92,7 +92,7 @@ def get_chat_third_reply(content, valid_contexts):
     return completion.choices[0].message.content + "-禅AI-"
 
 def split_content_to_sentences(content):
-    nlp = spacy.load("ja_core_news_lg")
+    nlp = spacy.load("ja_core_news_md")
     doc = nlp(content)
     return [sent.text for sent in doc.sents]
 
