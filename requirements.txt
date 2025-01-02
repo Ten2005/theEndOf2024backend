@@ -69,7 +69,7 @@ SudachiDict-core==20241021
 SudachiPy==0.6.9
 supabase==2.11.0
 supafunc==0.9.0
-thinc==8.3.3
+thinc>=8.1.8,<8.3.0
 tqdm==4.67.1
 typer==0.15.1
 typing_extensions==4.12.2
