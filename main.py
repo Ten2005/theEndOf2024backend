@@ -7,6 +7,7 @@ import spacy
 import os
 import dotenv
 from supabase import create_client, Client
+from datetime import datetime
 
 dotenv.load_dotenv()
 
