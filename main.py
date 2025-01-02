@@ -176,7 +176,7 @@ def analyze_save_result(unique_id, result):
     }).eq("id", unique_id).execute()
 
 
-def save_raw_result(user_id, messages):
+def save_raw_result(user_id, messages, timestamp):
     imageSessions = []
 
     formatted_messages = [
@@ -202,7 +202,7 @@ def save_raw_result(user_id, messages):
     response = supabase.table("sessions").insert({
         "user_id": user_id,
         "image_sessions": imageSessions,
-        "time_stamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "time_stamp": timestamp
     }).execute()
     
     # レスポンスからIDを正しく取得
@@ -241,8 +241,9 @@ class CompleteRequest(BaseModel):
 
 @app.post("/complete")
 async def complete(request: CompleteRequest):
-    unique_id = save_raw_result(request.user_id, request.messages)
+    unique_id = save_raw_result(request.user_id, request.messages, request.timestamp)
     analyze_save_result(unique_id, request.messages)
+    return {"unique_id": unique_id}
 
 class SessionRequest(BaseModel):
     user_id: str
