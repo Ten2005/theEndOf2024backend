@@ -8,6 +8,7 @@ import os
 import dotenv
 from supabase import create_client, Client
 from datetime import datetime
+import json
 
 dotenv.load_dotenv()
 
@@ -197,21 +198,29 @@ def save_raw_result(user_id, result):
         else:
             messages.append({"role": "assistant", "content": message["content"]})
     
-    print(messages)
     try:
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o",
+        completion = client.chat.completions.create(
+            model="gpt-4-0125-preview",
             messages=messages,
-            response_format=Emotions,
+            response_format={ "type": "json_object" },
+            functions=[{
+                "name": "get_emotions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "joy": {"type": "number", "minimum": 0, "maximum": 1},
+                        "sadness": {"type": "number", "minimum": 0, "maximum": 1},
+                        "anger": {"type": "number", "minimum": 0, "maximum": 1},
+                        "fear": {"type": "number", "minimum": 0, "maximum": 1}
+                    },
+                    "required": ["joy", "sadness", "anger", "fear"]
+                }
+            }]
         )
-        scores = completion.choices[0].message.parsed
+        scores_dict = json.loads(completion.choices[0].message.content)
     except Exception as e:
         print(f"Error analyzing emotions: {str(e)}")
-        # Return default neutral scores if analysis fails
-        scores = Emotions(joy=0.5, sadness=0.5, anger=0.5, fear=0.5)
-    # Emotionsオブジェクトを辞書に変換
-    scores_dict = scores.model_dump()
-
+        scores_dict = {"joy": 0.5, "sadness": 0.5, "anger": 0.5, "fear": 0.5}
 
     imageSessions = []
 
