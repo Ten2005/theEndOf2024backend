@@ -1,4 +1,3 @@
 tests/
 docs/
-*.log
-*.txt 
+*.log 
