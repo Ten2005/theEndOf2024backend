@@ -27,6 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# spacyのモデルをグローバルで1回だけ読み込む
+nlp = spacy.load("ja_core_news_md")
+
 def get_summary(text):
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -95,21 +98,20 @@ def get_chat_third_reply(content, valid_contexts):
     return completion.choices[0].message.content + "-禅AI-"
 
 def split_content_to_sentences(content):
-    nlp = spacy.load("ja_core_news_md")
+    # グローバルのnlpを使用
     doc = nlp(content)
     return [sent.text for sent in doc.sents]
 
 def get_valid_context(content, messages):
+    # グローバルのnlpを使用
     sentenceList = []
     for message in messages:
         sentences = split_content_to_sentences(message)
         sentenceList += sentences
 
-    # contentとsentenceListの各文との類似度を計算
-    nlp = spacy.load("ja_core_news_md")
     content_doc = nlp(content)
     
-    # 類似度とインデックスのペアのリストを作成
+    # 類似度計算の最適化
     similarities = []
     for i, sentence in enumerate(sentenceList):
         sentence_doc = nlp(sentence)
@@ -117,14 +119,14 @@ def get_valid_context(content, messages):
             similarity = content_doc.similarity(sentence_doc)
             similarities.append((similarity, i))
     
-    # 類似度でソートして上位20件を取得
+    # 上位10件に制限（20から削減）
     similarities.sort(reverse=True)
-    top_n = min(20, len(similarities))
-    top_20_indices = [idx for _, idx in similarities[:top_n]]
+    top_n = min(10, len(similarities))
+    top_10_indices = [idx for _, idx in similarities[:top_n]]
     
-    # 上位20件の文を元の順序で取得
-    top_20_indices.sort()
-    valid_contexts = [sentenceList[i] for i in top_20_indices]
+    # 上位10件の文を元の順序で取得
+    top_10_indices.sort()
+    valid_contexts = [sentenceList[i] for i in top_10_indices]
 
     return valid_contexts
 
