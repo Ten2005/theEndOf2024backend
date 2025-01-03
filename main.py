@@ -9,7 +9,7 @@ import dotenv
 from supabase import create_client, Client
 from datetime import datetime
 import json
-from toJson import get_emotions
+from toJson import get_emotions, split_messages
 
 dotenv.load_dotenv()
 
@@ -148,7 +148,7 @@ class Emotions(BaseModel):
 
 
 def save_raw_result(user_id, result):
-    formatted_result = [
+    formatted_messages = [
         {
             "content": msg.content,
             "isUser": msg.isUser
@@ -159,34 +159,15 @@ def save_raw_result(user_id, result):
         {"role": "system", "content": "会話内容を分析して、ユーザーの感情スコアを0~1の範囲で分析して下さい。（大きいほど感情が強い）"}
     ]
     
-    for message in formatted_result:
+    for message in formatted_messages:
         if message["isUser"]:
             messages.append({"role": "user", "content": message["content"]})
         else:
             messages.append({"role": "assistant", "content": message["content"]})
     
     scores_dict = get_emotions(messages)
-    imageSessions = []
 
-    formatted_messages = [
-        {
-            "content": msg.content,
-            "isUser": msg.isUser
-        } for msg in result
-    ]
-    
-    # メッセージを7つずつのグループに分割
-    if len(formatted_messages) >= 7:
-        for i in range(len(formatted_messages) // 7):
-            imageSessions.append({
-                "imageNumber": i + 1,
-                "messages": formatted_messages[i * 7:(i + 1) * 7],
-            })
-    else:
-        imageSessions.append({
-            "imageNumber": 1,
-            "messages": formatted_messages,
-        })
+    imageSessions = split_messages(formatted_messages)
     
     response = supabase.table("sessions").insert({
         "user_id": user_id,
