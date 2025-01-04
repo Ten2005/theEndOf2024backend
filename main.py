@@ -174,7 +174,6 @@ def save_raw_result(user_id, result):
     response = supabase.table("sessions").insert({
         "user_id": user_id,
         "image_sessions": imageSessions,
-        "time_stamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "emotions": scores_dict
     }).execute()
     
