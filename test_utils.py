@@ -9,7 +9,9 @@ from utils import (
     get_valid_context,
     split_messages,
     convert_to_messages,
-    save_raw_result
+    save_raw_result,
+    get_user_messages,
+    store_sentences
 )
 import schemas
 import test_data_utils
@@ -80,7 +82,7 @@ def test_get_valid_context():
 def test_split_messages():
     messages = [{"role": "user", "content": f"メッセージ{i}"} for i in range(15)]
     image_sessions = split_messages(messages)
-    assert len(image_sessions) == 3
+    assert len(image_sessions) == 2
 
 def test_convert_to_messages():
     result = [MagicMock(content="メッセージ1", isUser=True), MagicMock(content="メッセージ2", isUser=False)]
@@ -90,6 +92,19 @@ def test_convert_to_messages():
 def test_save_raw_result():
     user_id = "test_user"
     result = [MagicMock(content="メッセージ1", isUser=True), MagicMock(content="メッセージ2", isUser=False)]
-    session_id = save_raw_result(user_id, result)
-    assert isinstance(session_id, int)
-    assert session_id > 0
+    unique_id = save_raw_result(user_id, result)
+    assert isinstance(unique_id, str)
+    assert unique_id == user_id
+
+def test_get_user_messages():
+    for user_id in test_data_utils.data_test_get_user_messages:
+        messages = get_user_messages(user_id)
+        assert isinstance(messages, list)
+
+def test_store_sentences():
+    for data in test_data_utils.data_test_store_sentences:
+        user_id = data["user_id"]
+        messages = data["messages"]
+        stored_id = store_sentences(user_id, messages)
+        assert isinstance(stored_id, str)
+        assert stored_id == user_id

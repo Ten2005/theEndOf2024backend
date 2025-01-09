@@ -105,23 +105,30 @@ def split_content_to_sentences(content):
     doc = nlp(content)
     return [sent.text for sent in doc.sents]
 
+def vectorize_message(message):
+    response = client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=message
+    )
+    return response.data[0].embedding
+
 def calculate_similarities(sentenceList, content):
-    content_doc = nlp(content)
+    content_embedding = vectorize_message(content)
     similarities = []
     for i, sentence in enumerate(sentenceList):
-        sentence_doc = nlp(sentence)
-        if content_doc.vector_norm and sentence_doc.vector_norm:
-            similarity = content_doc.similarity(sentence_doc)
-            similarities.append((similarity, i))
+        sentence_embedding = vectorize_message(sentence)
+        similarity = sum(a * b for a, b in zip(content_embedding, sentence_embedding))
+        similarities.append((similarity, i))
     return similarities
 
-def get_valid_context(content, messages):
+def get_valid_context(messages):
+    print(messages)
     sentenceList = []
     for message in messages:
-        sentences = split_content_to_sentences(message)
+        sentences = split_content_to_sentences(message.content)
         sentenceList += sentences
 
-    similarities = calculate_similarities(sentenceList, content)
+    similarities = calculate_similarities(sentenceList, messages[-1].content)
 
     similarities.sort(reverse=True)
     top_n = min(10, len(similarities))
@@ -129,17 +136,16 @@ def get_valid_context(content, messages):
 
     return top_10_contexts
 
-def get_chat_reply(content, messages, chatRound):
+def get_chat_reply(messages):
+    valid_contexts = get_valid_context(messages)
 
-    valid_contexts = get_valid_context(content, messages)
-
-    match chatRound:
+    match messages[-1].chatRound:
         case 0:
-            return get_chat_first_reply(content, valid_contexts)
+            return get_chat_first_reply(messages[-1].content, valid_contexts)
         case 1:
-            return get_chat_second_reply(content, valid_contexts)
+            return get_chat_second_reply(messages[-1].content, valid_contexts)
         case 2:
-            return get_chat_third_reply(content, valid_contexts)
+            return get_chat_third_reply(messages[-1].content, valid_contexts)
         case _:
             return ""
 
@@ -171,27 +177,22 @@ def get_emotions(messages):
     }
 
 def split_messages(messages):
+    messages = messages[1:]
     imageSessions = []
     chunk_size = 7
-    num_chunks = len(messages) // chunk_size
-
-    for i in range(num_chunks + (1 if len(messages) % chunk_size else 0)):
-        imageSessions.append({
-            "imageNumber": i + 1,
-            "messages": messages[i * chunk_size:min((i + 1) * chunk_size, len(messages))]
-        })
+    
+    for i in range(0, len(messages), chunk_size):
+        chunk = messages[i:i + chunk_size]
+        if len(chunk) > 0:
+            imageSessions.append({
+                "imageNumber": (i // chunk_size) + 1,
+                "messages": chunk
+            })
 
     return imageSessions
 
-def convert_to_messages(result):
-    formatted_results = [
-        {
-            "content": msg.content,
-            "isUser": msg.isUser
-        } for msg in result
-    ]
-    
-    messages = [
+def convert_to_prompt(messages):
+    prompt = [
         {
             "role": "system",
             "content": 
@@ -201,24 +202,58 @@ def convert_to_messages(result):
             """
         }
     ]
+    for message in messages:
+        # Map any custom roles to OpenAI's accepted roles
+        role = "user" if message.role == "user" else "assistant"
+        prompt.append({"role": role, "content": message.content})
+    return prompt
 
-    for result in formatted_results:
-        if result["isUser"]:
-            messages.append({"role": "user", "content": result["content"]})
-        else:
-            messages.append({"role": "assistant", "content": result["content"]})
+def save_raw_result(user_id, messages, timestamp):
+    prompt = convert_to_prompt(messages)
+    scores_dict = get_emotions(prompt)
 
-    return messages
+    # Convert Message objects to dictionaries
+    serializable_messages = [
+        {
+            "role": message.role,
+            "content": message.content,
+            "chatRound": message.chatRound if hasattr(message, 'chatRound') else None,
+            "imageNumber": message.imageNumber if hasattr(message, 'imageNumber') else None
+        }
+        for message in messages
+    ]
 
-def save_raw_result(user_id, result):
-    messages = convert_to_messages(result)
-    scores_dict = get_emotions(messages)
-    imageSessions = split_messages(messages)
-
-    response = supabase.table("sessions").insert({
+    response = supabase.table("user_data").insert({
         "user_id": user_id,
-        "image_sessions": imageSessions,
-        "emotions": scores_dict
+        "emotions": scores_dict,
+        "content": serializable_messages,
     }).execute()
-    
-    return response.data[0]['id']
+
+    return response.data[0]['user_id']
+
+def get_user_messages(user_id):
+    try:
+        response = supabase.table("users").select("sentences").eq("user_id", user_id).execute()
+        return response.data[0]['sentences']
+    except (IndexError, KeyError):
+        response = supabase.table("users").insert({
+            "user_id": user_id,
+            "sentences": []
+        }).execute()
+        return response.data[0]['sentences']
+
+def store_sentences(user_id, messages):
+    messages = messages[1:]
+    new_messages = []
+    for message in messages:
+        if message["isUser"]:
+            message["vector"] = vectorize_message(message["content"])
+            new_messages.append(message)
+    existing_sentences = get_user_messages(user_id)
+    stored_messages = existing_sentences + new_messages
+
+    response = supabase.table("users").update({
+        "sentences": stored_messages
+    }).eq("user_id", user_id).execute()
+
+    return response.data[0]['user_id']

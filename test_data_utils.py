@@ -73,3 +73,37 @@ data_test_get_emotions = [
     }
 ]
 ]
+
+data_test_get_user_messages = [
+    'string',
+    'bfed1991-a797-409f-98a4-5301251315fe'
+    ]
+
+data_test_store_sentences = [
+    {
+        "user_id": "string",
+        "messages": [
+            {"content": "string", "isUser": True},
+            {"content": "string", "isUser": True},
+            {"content": "string", "isUser": False},
+            {"content": "string", "isUser": True}
+        ]
+    },
+    {
+        "user_id": "string_test",
+        "messages": [
+            {"content": "string_test", "isUser": True},
+            {"content": "string_test", "isUser": False}
+        ]
+    },
+    {
+        "user_id": "bfed1991-a797-409f-98a4-5301251315fe",
+        "messages": [
+            {"content": "string_test2", "isUser": True},
+            {"content": "string_test2", "isUser": True},
+            {"content": "string_test2", "isUser": False},
+            {"content": "string_test2", "isUser": True},
+            {"content": "string_test2", "isUser": False}
+        ]
+    }
+]

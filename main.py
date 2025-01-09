@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from openai import OpenAI
@@ -36,19 +36,20 @@ async def summarize(request: schemas.SummarizeRequest):
     return {"summary": summary}
 
 @app.post("/chat")
-async def chat(request: schemas.ChatRequest):
-    reply = utils.get_chat_reply(request.content, request.messages, request.chatRound)
+async def chat(request: schemas.Messages):
+    reply = utils.get_chat_reply(request.messages)
     return {"reply": reply}
 
 @app.post("/complete")
 async def complete(request: schemas.CompleteRequest):
-    unique_id = utils.save_raw_result(request.user_id, request.messages)
-    return {"unique_id": unique_id}
+    if not request.user_id or not request.messages or not request.timestamp:
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    utils.save_raw_result(request.user_id, request.messages, request.timestamp)
+    return {"status": "success"}
 
-@app.post("/sessions")
-async def sessions(request: schemas.SessionRequest):
-    response = supabase.table("sessions").select("*").eq("user_id", request.user_id).order("id").execute()
-    print(response)
+@app.post("/review")
+async def review(request: schemas.ReviewRequest):
+    response = supabase.table("user_data").select("*").eq("user_id", request.user_id).execute()
     return response.data
 
 if __name__ == "__main__":
