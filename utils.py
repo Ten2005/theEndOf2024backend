@@ -208,7 +208,7 @@ def convert_to_prompt(messages):
         prompt.append({"role": role, "content": message.content})
     return prompt
 
-def save_raw_result(user_id, messages, timestamp):
+def save_raw_result(user_id, messages):
     prompt = convert_to_prompt(messages)
     scores_dict = get_emotions(prompt)
 
@@ -223,7 +223,7 @@ def save_raw_result(user_id, messages, timestamp):
         for message in messages
     ]
 
-    response = supabase.table("user_data").insert({
+    response = supabase.table("log_data").insert({
         "user_id": user_id,
         "emotions": scores_dict,
         "content": serializable_messages,
@@ -231,29 +231,81 @@ def save_raw_result(user_id, messages, timestamp):
 
     return response.data[0]['user_id']
 
-def get_user_messages(user_id):
+def content_to_text(data):
+    text_content = ""
+    for contents in data:
+        for content in contents:
+            if content["role"] == "user":
+                text_content += content["content"]
+    return text_content
+
+def analyze_text(text):
+    print(text)
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                入力されたテキストは、様々な画像についてのユーザーの感想や、それに関する会話の発言内容です。
+                その内容を分析して、ユーザーの性格や、その画像に対するユーザーの印象を分析して下さい。
+                また、ユーザーが潜在的に抱えてそうな悩みや価値観を分析してください。
+                出力はテキストのみで、マークダウンなどは使用しないでください。
+                """
+                },
+            {
+                "role": "user",
+                "content": text
+                }
+        ]
+    )
+    return completion.choices[0].message.content
+
+def GPT_analyze(user_id):
+    response = supabase.table("log_data").select("content").eq("user_id", user_id).order("id").execute()
+    text_content = content_to_text([content["content"] for content in response.data])
+    analysis_result = analyze_text(text_content)
+    
     try:
-        response = supabase.table("users").select("sentences").eq("user_id", user_id).execute()
-        return response.data[0]['sentences']
-    except (IndexError, KeyError):
-        response = supabase.table("users").insert({
-            "user_id": user_id,
-            "sentences": []
-        }).execute()
-        return response.data[0]['sentences']
+        result = supabase.table("users").update({
+            "GPT_analysis": analysis_result
+        }).eq("user_id", user_id).execute()
 
-def store_sentences(user_id, messages):
-    messages = messages[1:]
-    new_messages = []
-    for message in messages:
-        if message["isUser"]:
-            message["vector"] = vectorize_message(message["content"])
-            new_messages.append(message)
-    existing_sentences = get_user_messages(user_id)
-    stored_messages = existing_sentences + new_messages
+        if not result.data:
+            result = supabase.table("users").insert({
+                "user_id": user_id,
+                "GPT_analysis": analysis_result
+            }).execute()
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
+        
+    return analysis_result
 
-    response = supabase.table("users").update({
-        "sentences": stored_messages
-    }).eq("user_id", user_id).execute()
+# def get_user_messages(user_id):
+#     try:
+#         response = supabase.table("users").select("sentences").eq("user_id", user_id).execute()
+#         return response.data[0]['sentences']
+#     except (IndexError, KeyError):
+#         response = supabase.table("users").insert({
+#             "user_id": user_id,
+#             "sentences": []
+#         }).execute()
+#         return response.data[0]['sentences']
 
-    return response.data[0]['user_id']
+# def store_sentences(user_id, messages):
+#     messages = messages[1:]
+#     new_messages = []
+#     for message in messages:
+#         if message["isUser"]:
+#             message["vector"] = vectorize_message(message["content"])
+#             new_messages.append(message)
+#     existing_sentences = get_user_messages(user_id)
+#     stored_messages = existing_sentences + new_messages
+
+#     response = supabase.table("users").update({
+#         "sentences": stored_messages
+#     }).eq("user_id", user_id).execute()
+
+#     return response.data[0]['user_id']
