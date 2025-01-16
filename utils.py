@@ -4,6 +4,7 @@ import os
 import dotenv
 from supabase import create_client, Client
 import json
+import schemas
 
 dotenv.load_dotenv()
 
@@ -283,29 +284,116 @@ def GPT_analyze(user_id):
         
     return analysis_result
 
-# def get_user_messages(user_id):
-#     try:
-#         response = supabase.table("users").select("sentences").eq("user_id", user_id).execute()
-#         return response.data[0]['sentences']
-#     except (IndexError, KeyError):
-#         response = supabase.table("users").insert({
-#             "user_id": user_id,
-#             "sentences": []
-#         }).execute()
-#         return response.data[0]['sentences']
 
-# def store_sentences(user_id, messages):
-#     messages = messages[1:]
-#     new_messages = []
-#     for message in messages:
-#         if message["isUser"]:
-#             message["vector"] = vectorize_message(message["content"])
-#             new_messages.append(message)
-#     existing_sentences = get_user_messages(user_id)
-#     stored_messages = existing_sentences + new_messages
+def get_suggestion(text_input):
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system", 
+                "content": 
+                """
+                入力されたテキストから悩みを分析し、それぞれの悩みに対して解釈の幅が広い助言を短く（20文字以内）行なってください。
+                Json形式で出力してください。
+                """
+            },
+            {
+                "role": "user",
+                "content": text_input
+            }
+        ],
+        functions=[{
+            "name": "get_suggestion",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "anxiety": {"type": "string"},
+                    "advice": {"type": "string"}
+                },
+                "required": ["anxiety", "advice"]
+            }
+        }],
+        function_call={"name": "get_suggestion"},
+        response_format={ "type": "json_object" }
+    )
 
-#     response = supabase.table("users").update({
-#         "sentences": stored_messages
-#     }).eq("user_id", user_id).execute()
+    suggestion = schemas.SuggestionContent.model_validate_json(
+        completion.choices[0].message.function_call.arguments
+        )
+    return {
+        "anxiety": suggestion.anxiety,
+        "advice": suggestion.advice
+    }
 
-#     return response.data[0]['user_id']
+def adjust_suggestion(base_suggestion):
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system", 
+                "content": 
+                f"""
+                入力テキストはユーザーの悩み「{base_suggestion["anxiety"]}」へのアドバイスです。
+                このアドバイスに対して、表現形式
+                １：占い
+                ２：宗教
+                ３：名言
+                ４：哲学
+                の四つを出力してください。（具体的な行動については表現方法を変えて言及）
+                Json形式で出力してください。
+                """
+            },
+            {
+                "role": "user",
+                "content": base_suggestion["advice"]
+            }
+        ],
+        functions=[{
+            "name": "get_suggestion",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fortune_telling": {"type": "string"},
+                    "religion": {"type": "string"},
+                    "quote": {"type": "string"},
+                    "philosophy": {"type": "string"}
+                },
+                "required": ["fortune_telling", "religion", "quote", "philosophy"]
+            }
+        }],
+        function_call={"name": "get_suggestion"},
+        response_format={ "type": "json_object" }
+    )
+
+    suggestion = schemas.SuggestionType.model_validate_json(
+        completion.choices[0].message.function_call.arguments
+        )
+    return {
+        "anxiety": base_suggestion["anxiety"],
+        "advice": base_suggestion["advice"],
+        "fortune_telling": suggestion.fortune_telling,
+        "religion": suggestion.religion,
+        "quote": suggestion.quote,
+        "philosophy": suggestion.philosophy
+    }
+
+def generate_suggestion(user_id, result):
+    suggestion = get_suggestion(result)
+    suggestion = adjust_suggestion(suggestion)
+    
+    # 既存のレコードを確認
+    existing_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
+    
+    if existing_record.data:
+        # レコードが存在する場合は更新
+        supabase.table("users").update({
+            "suggestions": suggestion
+        }).eq("user_id", user_id).execute()
+    else:
+        # レコードが存在しない場合は挿入
+        supabase.table("users").insert({
+            "user_id": user_id,
+            "suggestions": suggestion
+        }).execute()
+    
+    return suggestion

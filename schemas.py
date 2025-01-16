@@ -20,3 +20,11 @@ class CompleteRequest(BaseModel):
     timestamp: str
 class ReviewRequest(BaseModel):
     user_id: str
+class SuggestionContent(BaseModel):
+    anxiety: str
+    advice: str
+class SuggestionType(BaseModel):
+    fortune_telling: str
+    religion: str
+    quote: str
+    philosophy: str

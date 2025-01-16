@@ -45,8 +45,9 @@ async def complete(request: schemas.CompleteRequest):
     if not request.user_id or not request.messages or not request.timestamp:
         raise HTTPException(status_code=400, detail="Missing required fields")
     utils.save_raw_result(request.user_id, request.messages)
-    utils.GPT_analyze(request.user_id)
-    return {"status": "success"}
+    result = utils.GPT_analyze(request.user_id)
+    utils.generate_suggestion(request.user_id, result)
+    return {"status": "success", "result": result}
 
 @app.post("/review")
 async def review(request: schemas.ReviewRequest):
