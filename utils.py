@@ -398,3 +398,61 @@ def generate_suggestion(user_id, result):
         }).execute()
     
     return suggestion
+
+def get_ten_bulls_advice_and_level(user_id, result):
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": f"""下記のユーザー情報をもとに、ユーザーの現状や課題を洗い出し、
+                その課題に対するアドバイスを出力してください。教えとして適した口調にしてください。
+                また、十牛図におけるユーザーのレベルを1~10の整数範囲で出力してください。
+                最終的には、アドバイスとレベルの二つをJson形式で出力してください。
+                ユーザー情報：{result}
+                """
+            }
+        ],
+        functions=[{
+            "name": "get_ten_bulls_advice_and_level",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "advice": {"type": "string"},
+                    "level": {"type": "number"}
+                },
+                "required": ["advice", "level"]
+            }
+        }],
+        function_call={"name": "get_ten_bulls_advice_and_level"},
+        response_format={ "type": "json_object" }
+    )
+
+    advice_and_level = schemas.TenBullsAdviceAndLevel.model_validate_json(
+        completion.choices[0].message.function_call.arguments
+        )
+    advice = advice_and_level.advice
+    level = advice_and_level.level
+
+    return advice, level
+
+def generate_ten_bulls_advice(user_id, result):
+    advice, level = get_ten_bulls_advice_and_level(user_id, result)
+    
+    # 既存のレコードを確認
+    existing_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
+    
+    if existing_record.data:
+        # レコードが存在する場合は更新
+        supabase.table("users").update({
+            "ten_bulls_advice": advice,
+            "ten_bulls_level": level
+        }).eq("user_id", user_id).execute()
+    else:
+        # レコードが存在しない場合は挿入
+        supabase.table("users").insert({
+            "user_id": user_id,
+            "ten_bulls_advice": advice,
+            "ten_bulls_level": level
+        }).execute()
+    return advice

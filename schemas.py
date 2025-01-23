@@ -29,3 +29,12 @@ class SuggestionType(BaseModel):
     religion: str
     quote: str
     philosophy: str
+class TenBullsAdviceAndLevel(BaseModel):
+    advice: str
+    level: int
+class TenBullsDataRequest(BaseModel):
+    user_id: str
+class TenBullsData(BaseModel):
+    advice: str
+    level: int
+    user_id: str

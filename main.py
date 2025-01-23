@@ -46,7 +46,10 @@ async def complete(request: schemas.CompleteRequest):
         raise HTTPException(status_code=400, detail="Missing required fields")
     utils.save_raw_result(request.user_id, request.messages, request.gender)
     result = utils.GPT_analyze(request.user_id)
-    utils.generate_suggestion(request.user_id, result)
+    
+    utils.generate_suggestion(request.user_id, str(result))
+    utils.generate_ten_bulls_advice(request.user_id, str(result))
+    
     return {"status": "success", "result": result}
 
 @app.post("/review")
@@ -55,6 +58,10 @@ async def review(request: schemas.ReviewRequest):
     user_response = supabase.table("users").select("*").eq("user_id", request.user_id).execute()
     return {"log_data": log_response.data, "user_data": user_response.data}
 
+@app.post("/ten_bulls_data")
+async def ten_bulls_data(request: schemas.TenBullsDataRequest):
+    user_data = supabase.table("users").select("*").eq("user_id", request.user_id).execute()
+    return {"advice": user_data.data[0]["ten_bulls_advice"], "level": user_data.data[0]["ten_bulls_level"]}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
