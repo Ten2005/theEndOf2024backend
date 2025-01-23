@@ -12,7 +12,7 @@ supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-nlp = spacy.load("ja_core_news_md")
+nlp = spacy.load("ja_core_news_sm")
 
 def get_summary(text):
     completion = client.chat.completions.create(
@@ -209,7 +209,7 @@ def convert_to_prompt(messages):
         prompt.append({"role": role, "content": message.content})
     return prompt
 
-def save_raw_result(user_id, messages):
+def save_raw_result(user_id, messages, gender):
     prompt = convert_to_prompt(messages)
     scores_dict = get_emotions(prompt)
 
@@ -228,6 +228,7 @@ def save_raw_result(user_id, messages):
         "user_id": user_id,
         "emotions": scores_dict,
         "content": serializable_messages,
+        "gender": gender
     }).execute()
 
     return response.data[0]['user_id']

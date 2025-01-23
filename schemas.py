@@ -18,6 +18,7 @@ class CompleteRequest(BaseModel):
     user_id: str
     messages: List[Message]
     timestamp: str
+    gender: str
 class ReviewRequest(BaseModel):
     user_id: str
 class SuggestionContent(BaseModel):
