@@ -1,20 +1,22 @@
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-from openai import OpenAI
 import os
+from typing import List
 import dotenv
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 from supabase import create_client, Client
+import uvicorn
 
 import utils
 import schemas
 
 dotenv.load_dotenv()
 
-supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_ANON_KEY")
+    )
 
 app = FastAPI()
 
@@ -42,14 +44,10 @@ async def chat(request: schemas.Messages):
 
 @app.post("/complete")
 async def complete(request: schemas.CompleteRequest):
-    if not request.user_id or not request.messages or not request.timestamp or not request.gender:
-        raise HTTPException(status_code=400, detail="Missing required fields")
-    utils.save_raw_result(request.user_id, request.messages, request.gender)
+    utils.process_result(request.user_id, request.messages, request.gender)
     result = utils.GPT_analyze(request.user_id)
-    
     utils.generate_suggestion(request.user_id, str(result))
     utils.generate_ten_bulls_advice(request.user_id, str(result))
-    
     return {"status": "success", "result": result}
 
 @app.post("/review")

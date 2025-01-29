@@ -1,14 +1,17 @@
-from openai import OpenAI
-import spacy
-import os
-import dotenv
-from supabase import create_client, Client
 import json
+import os
+from supabase import create_client, Client
+import dotenv
+from openai import OpenAI
 import schemas
+import spacy
 
 dotenv.load_dotenv()
 
-supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_ANON_KEY")
+    )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -22,8 +25,9 @@ def get_summary(text):
                 "role": "system",
                 "content": 
                 """
-                ユーザーが画像を見て感じたメモ書きを、整理して下さい（コメントは不要）。
-                分量が少なければ、簡単に整理してそのまま返して下さい。
+                １：ユーザーが画像を見て感じたメモ書きを整理して下さい（コメントは不要）。
+                ２：分量が少なければ、簡単に整理してそのまま返して下さい。
+                ３：十分なテキストがない場合は「特にありません」と返して下さい。
                 """
                 },
             {
@@ -123,7 +127,6 @@ def calculate_similarities(sentenceList, content):
     return similarities
 
 def get_valid_context(messages):
-    print(messages)
     sentenceList = []
     for message in messages:
         sentences = split_content_to_sentences(message.content)
@@ -132,10 +135,10 @@ def get_valid_context(messages):
     similarities = calculate_similarities(sentenceList, messages[-1].content)
 
     similarities.sort(reverse=True)
-    top_n = min(10, len(similarities))
-    top_10_contexts = [sentenceList[idx[1]] for idx in similarities[:top_n]]
+    top_n = min(5, len(similarities))
+    top_contexts = [sentenceList[idx[1]] for idx in similarities[:top_n]]
 
-    return top_10_contexts
+    return top_contexts
 
 def get_chat_reply(messages):
     valid_contexts = get_valid_context(messages)
@@ -152,7 +155,7 @@ def get_chat_reply(messages):
 
 def get_emotions(messages):
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=messages,
         functions=[{
             "name": "get_emotions",
@@ -192,7 +195,7 @@ def split_messages(messages):
 
     return imageSessions
 
-def convert_to_prompt(messages):
+def create_emotions_prompt(messages):
     prompt = [
         {
             "role": "system",
@@ -204,16 +207,17 @@ def convert_to_prompt(messages):
         }
     ]
     for message in messages:
-        # Map any custom roles to OpenAI's accepted roles
         role = "user" if message.role == "user" else "assistant"
-        prompt.append({"role": role, "content": message.content})
+        prompt.append({
+            "role": role,
+            "content": message.content
+            })
     return prompt
 
-def save_raw_result(user_id, messages, gender):
-    prompt = convert_to_prompt(messages)
-    scores_dict = get_emotions(prompt)
+def process_result(user_id, messages, gender):
+    emotions_prompt = create_emotions_prompt(messages)
+    emotions_scores = get_emotions(emotions_prompt)
 
-    # Convert Message objects to dictionaries
     serializable_messages = [
         {
             "role": message.role,
@@ -226,7 +230,7 @@ def save_raw_result(user_id, messages, gender):
 
     response = supabase.table("log_data").insert({
         "user_id": user_id,
-        "emotions": scores_dict,
+        "emotions": emotions_scores,
         "content": serializable_messages,
         "gender": gender
     }).execute()
@@ -244,7 +248,7 @@ def content_to_text(data):
 def analyze_text(text):
     print(text)
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -264,8 +268,8 @@ def analyze_text(text):
     return completion.choices[0].message.content
 
 def GPT_analyze(user_id):
-    response = supabase.table("log_data").select("content").eq("user_id", user_id).order("id").execute()
-    text_content = content_to_text([content["content"] for content in response.data])
+    all_messages = supabase.table("log_data").select("content").eq("user_id", user_id).order("id").execute()
+    text_content = content_to_text([content["content"] for content in all_messages.data])
     analysis_result = analyze_text(text_content)
     
     try:
@@ -288,13 +292,14 @@ def GPT_analyze(user_id):
 
 def get_suggestion(text_input):
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system", 
                 "content": 
                 """
-                入力されたテキストから悩みを分析し、それぞれの悩みに対して解釈の幅が広い助言を短く（20文字以内）行なってください。
+                入力されたテキストから悩みを分析し、
+                それぞれの悩みに対して解釈の幅が広い助言を短く（20文字以内）行なってください。
                 Json形式で出力してください。
                 """
             },
@@ -328,7 +333,7 @@ def get_suggestion(text_input):
 
 def adjust_suggestion(base_suggestion):
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system", 
@@ -382,16 +387,13 @@ def generate_suggestion(user_id, result):
     suggestion = get_suggestion(result)
     suggestion = adjust_suggestion(suggestion)
     
-    # 既存のレコードを確認
-    existing_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
+    user_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
     
-    if existing_record.data:
-        # レコードが存在する場合は更新
+    if user_record.data:
         supabase.table("users").update({
             "suggestions": suggestion
         }).eq("user_id", user_id).execute()
     else:
-        # レコードが存在しない場合は挿入
         supabase.table("users").insert({
             "user_id": user_id,
             "suggestions": suggestion
@@ -401,7 +403,7 @@ def generate_suggestion(user_id, result):
 
 def get_ten_bulls_advice_and_level(user_id, result):
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "user",
@@ -439,17 +441,14 @@ def get_ten_bulls_advice_and_level(user_id, result):
 def generate_ten_bulls_advice(user_id, result):
     advice, level = get_ten_bulls_advice_and_level(user_id, result)
     
-    # 既存のレコードを確認
     existing_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
     
     if existing_record.data:
-        # レコードが存在する場合は更新
         supabase.table("users").update({
             "ten_bulls_advice": advice,
             "ten_bulls_level": level
         }).eq("user_id", user_id).execute()
     else:
-        # レコードが存在しない場合は挿入
         supabase.table("users").insert({
             "user_id": user_id,
             "ten_bulls_advice": advice,
