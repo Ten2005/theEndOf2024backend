@@ -61,5 +61,14 @@ async def ten_bulls_data(request: schemas.TenBullsDataRequest):
     user_data = supabase.table("users").select("*").eq("user_id", request.user_id).execute()
     return {"advice": user_data.data[0]["ten_bulls_advice"], "level": user_data.data[0]["ten_bulls_level"]}
 
+@app.post("/feedback")
+async def feedback(request: schemas.FeedbackRequest):
+    supabase.table("feedback").insert({
+        "user_id": request.user_id,
+        "try_num": request.scores[0],
+        "scores": request.scores[1:],
+    }).execute()
+    return {"status": "success"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

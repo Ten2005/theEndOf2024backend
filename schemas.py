@@ -38,3 +38,7 @@ class TenBullsData(BaseModel):
     advice: str
     level: int
     user_id: str
+
+class FeedbackRequest(BaseModel):
+    user_id: str
+    scores: List[int]
