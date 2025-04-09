@@ -228,7 +228,7 @@ def process_result(user_id, messages, gender):
         for message in messages
     ]
 
-    response = supabase.table("log_data").insert({
+    response = supabase.table("art_log_data").insert({
         "user_id": user_id,
         "emotions": emotions_scores,
         "content": serializable_messages,
@@ -268,17 +268,17 @@ def analyze_text(text):
     return completion.choices[0].message.content
 
 def GPT_analyze(user_id):
-    all_messages = supabase.table("log_data").select("content").eq("user_id", user_id).order("id").execute()
+    all_messages = supabase.table("art_log_data").select("content").eq("user_id", user_id).order("id").execute()
     text_content = content_to_text([content["content"] for content in all_messages.data])
     analysis_result = analyze_text(text_content)
     
     try:
-        result = supabase.table("users").update({
+        result = supabase.table("art_users").update({
             "GPT_analysis": analysis_result
         }).eq("user_id", user_id).execute()
 
         if not result.data:
-            result = supabase.table("users").insert({
+            result = supabase.table("art_users").insert({
                 "user_id": user_id,
                 "GPT_analysis": analysis_result
             }).execute()
@@ -387,14 +387,14 @@ def generate_suggestion(user_id, result):
     suggestion = get_suggestion(result)
     suggestion = adjust_suggestion(suggestion)
     
-    user_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
+    user_record = supabase.table("art_users").select("*").eq("user_id", user_id).execute()
     
     if user_record.data:
-        supabase.table("users").update({
+        supabase.table("art_users").update({
             "suggestions": suggestion
         }).eq("user_id", user_id).execute()
     else:
-        supabase.table("users").insert({
+        supabase.table("art_users").insert({
             "user_id": user_id,
             "suggestions": suggestion
         }).execute()
@@ -441,15 +441,15 @@ def get_ten_bulls_advice_and_level(user_id, result):
 def generate_ten_bulls_advice(user_id, result):
     advice, level = get_ten_bulls_advice_and_level(user_id, result)
     
-    existing_record = supabase.table("users").select("*").eq("user_id", user_id).execute()
+    existing_record = supabase.table("art_users").select("*").eq("user_id", user_id).execute()
     
     if existing_record.data:
-        supabase.table("users").update({
+        supabase.table("art_users").update({
             "ten_bulls_advice": advice,
             "ten_bulls_level": level
         }).eq("user_id", user_id).execute()
     else:
-        supabase.table("users").insert({
+        supabase.table("art_users").insert({
             "user_id": user_id,
             "ten_bulls_advice": advice,
             "ten_bulls_level": level

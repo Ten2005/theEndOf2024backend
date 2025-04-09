@@ -52,18 +52,18 @@ async def complete(request: schemas.CompleteRequest):
 
 @app.post("/review")
 async def review(request: schemas.ReviewRequest):
-    log_response = supabase.table("log_data").select("*").eq("user_id", request.user_id).order("id").execute()
-    user_response = supabase.table("users").select("*").eq("user_id", request.user_id).execute()
+    log_response = supabase.table("art_log_data").select("*").eq("user_id", request.user_id).order("id").execute()
+    user_response = supabase.table("art_users").select("*").eq("user_id", request.user_id).execute()
     return {"log_data": log_response.data, "user_data": user_response.data}
 
 @app.post("/ten_bulls_data")
 async def ten_bulls_data(request: schemas.TenBullsDataRequest):
-    user_data = supabase.table("users").select("*").eq("user_id", request.user_id).execute()
+    user_data = supabase.table("art_users").select("*").eq("user_id", request.user_id).execute()
     return {"advice": user_data.data[0]["ten_bulls_advice"], "level": user_data.data[0]["ten_bulls_level"]}
 
 @app.post("/feedback")
 async def feedback(request: schemas.FeedbackRequest):
-    supabase.table("feedback").insert({
+    supabase.table("art_feedback").insert({
         "user_id": request.user_id,
         "try_num": request.scores[0],
         "scores": request.scores[1:],
