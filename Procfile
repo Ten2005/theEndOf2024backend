@@ -1,1 +1,1 @@
-web: python -m spacy download ja_core_news_sm && python main.py
+web: bash start.sh
