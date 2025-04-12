@@ -1,8 +1,6 @@
 import os
 from typing import List
 import dotenv
-import sys
-import socket
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,21 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# デバッグ情報をログに出力
-@app.on_event("startup")
-async def startup_event():
-    port = int(os.getenv("PORT", 8000))
-    print(f"Starting application on port {port} with host 0.0.0.0")
-    print(f"Python version: {sys.version}")
-    print(f"Environment variables: PORT={os.getenv('PORT')}")
-    
-    # 現在のホスト名とIPアドレスを表示
-    print(f"Hostname: {socket.gethostname()}")
-    try:
-        print(f"IP addresses: {socket.gethostbyname_ex(socket.gethostname())}")
-    except:
-        print("Failed to get IP addresses")
 
 @app.get("/")
 async def root():
@@ -87,8 +70,6 @@ async def feedback(request: schemas.FeedbackRequest):
     }).execute()
     return {"status": "success"}
 
-# Railwayで直接実行された場合のエントリポイント
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    # バインディングアドレスを明示的に0.0.0.0に設定
     uvicorn.run(app, host="0.0.0.0", port=port)
