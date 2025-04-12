@@ -1,6 +1,8 @@
 import os
 from typing import List
 import dotenv
+import sys
+import socket
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +29,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# デバッグ情報をログに出力
+@app.on_event("startup")
+async def startup_event():
+    port = int(os.getenv("PORT", 8000))
+    print(f"Starting application on port {port} with host 0.0.0.0")
+    print(f"Python version: {sys.version}")
+    print(f"Environment variables: PORT={os.getenv('PORT')}")
+    
+    # 現在のホスト名とIPアドレスを表示
+    print(f"Hostname: {socket.gethostname()}")
+    try:
+        print(f"IP addresses: {socket.gethostbyname_ex(socket.gethostname())}")
+    except:
+        print("Failed to get IP addresses")
 
 @app.get("/")
 async def root():
@@ -70,13 +87,8 @@ async def feedback(request: schemas.FeedbackRequest):
     }).execute()
     return {"status": "success"}
 
-# Railwayでは直接uvicornを実行しているようなので、モジュールとして実行されても必ず0.0.0.0にバインドするよう修正
-port = int(os.getenv("PORT", 8000))
-app.add_event_handler("startup", lambda: print(f"Application startup with host 0.0.0.0 and port {port}"))
-
+# Railwayで直接実行された場合のエントリポイント
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
-else:
-    # アプリケーションが直接実行される場合の設定
     port = int(os.getenv("PORT", 8000))
-    host = "0.0.0.0"
+    # バインディングアドレスを明示的に0.0.0.0に設定
+    uvicorn.run(app, host="0.0.0.0", port=port)
