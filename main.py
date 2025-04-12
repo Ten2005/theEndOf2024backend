@@ -70,8 +70,11 @@ async def feedback(request: schemas.FeedbackRequest):
     }).execute()
     return {"status": "success"}
 
+# Railwayでは直接uvicornを実行しているようなので、モジュールとして実行されても必ず0.0.0.0にバインドするよう修正
+port = int(os.getenv("PORT", 8000))
+app.add_event_handler("startup", lambda: print(f"Application startup with host 0.0.0.0 and port {port}"))
+
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
 else:
     # アプリケーションが直接実行される場合の設定
