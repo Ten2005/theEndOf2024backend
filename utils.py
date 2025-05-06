@@ -228,6 +228,10 @@ def process_result(user_id, messages, gender):
         for message in messages
     ]
 
+    user_check_response = supabase.table("art_users").select("user_id").eq("user_id", user_id).execute()
+    if not user_check_response.data:
+        supabase.table("art_users").insert({"user_id": user_id, "gender": gender}).execute()
+
     response = supabase.table("art_log_data").insert({
         "user_id": user_id,
         "emotions": emotions_scores,
