@@ -10,7 +10,7 @@ dotenv.load_dotenv()
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_ANON_KEY")
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -440,9 +440,9 @@ def get_ten_bulls_advice_and_level(user_id, result):
 
 def generate_ten_bulls_advice(user_id, result):
     advice, level = get_ten_bulls_advice_and_level(user_id, result)
-    
+
     existing_record = supabase.table("art_users").select("*").eq("user_id", user_id).execute()
-    
+
     if existing_record.data:
         supabase.table("art_users").update({
             "ten_bulls_advice": advice,
